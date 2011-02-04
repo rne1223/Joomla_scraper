@@ -4,26 +4,25 @@ class SpiderTree
     /**
      * Settings in order to modify curl
      */
-    private $ch;                             // will initialize curl handle in __construct
-    private $timeStart;                     
-    private $timeLapsed;
-    private $VAR_CURLOPT_FAILONERROR = 0;    // if HTTP code > 300 still returns the page
-    private $VAR_CURLOPT_FOLLOWLOCATION = 1; // allow redirects 
-    private $VAR_CURLOPT_RETURNTRANSFER = 1; // will return the page in a variable 
-    private $VAR_CURLOPT_USERAGENT = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)";
-    private $intMaxDepth = 10; 		        // max number of pages to crawl  --> note that this should not be used for control loop; it is a safety valve
-    private $intDepth = 0;		            // tracks depth as spider crawls 
-    private $strRootLink;		            // Passed link
-    private $arrIDs = array('menu'=>'pbutts','content'=>'prg-cont'); // Hold selected IDs in order to search
-    private $arrUrlExt = array('','org','php','html','htm','com','edu');
-    private $arrLinksFound = array();	    // holds links found so they won't be added again
-    private $scraped = array();	    // holds links found so they won't be added again
-    private $host;                          // contains the Host name eg: http://google.com -> host=google.com
-    public  $booMax=false;
-    public  $arrTree = array();	            // holds links to crawl 
-    public  $display = 1;            // Flag to display errors
-    public  $intFetch = 6;                 // How many should be process at a time
-    public  $Fetch = 6;                 // How many should be process at a time
+    public $ch;                             // will initialize curl handle in __construct
+    public $timeStart;                     
+    public $timeLapsed;
+    public $VAR_CURLOPT_FAILONERROR = 0;    // if HTTP code > 300 still returns the page
+    public $VAR_CURLOPT_FOLLOWLOCATION = 1; // allow redirects 
+    public $VAR_CURLOPT_RETURNTRANSFER = 1; // will return the page in a variable 
+    public $VAR_CURLOPT_USERAGENT = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)";
+    public $intMaxDepth = 10; 		        // max number of pages to crawl  --> note that this should not be used for control loop; it is a safety valve
+    public $intDepth = 0;		            // tracks depth as spider crawls 
+    public $strRootLink;		            // Passed link
+    public $arrIDs = array('menu'=>'pbutts','content'=>'prg-cont'); // Hold selected IDs in order to search
+    public $arrUrlExt = array('','org','php','html','htm','com','edu');
+    public $arrLinksFound = array();	    // holds links found so they won't be added again
+    public $arrScraped = array();	    // holds links found so they won't be added again
+    public $host;                          // contains the Host name eg: http://google.com -> host=google.com
+    public $booMax=false;
+    public $arrTree = array();	            // holds links to crawl 
+    public $display = 1;            // Flag to display errors
+    public $intFetch = 6;                 // How many should be process at a time
 
     /*
      * Constructor 
@@ -136,9 +135,9 @@ class SpiderTree
         if(empty($strLink))
             return $found;
 
-        if(!empty($this->arrLinksFound))
+        if(!empty($this->arrScraped))
         {
-            $search = array_flip($this->scraped);
+            $search = array_flip($this->arrScraped);
 
             if(isset($search[$strLink]))
                 return !$found;
@@ -226,7 +225,7 @@ class SpiderTree
      * @param   id      Id that we want to get the html from     
      * @return  string  Html inside the id
      **/
-    function getHtml($HTML,$id)
+    function getHtmlInId($id,$HTML)
     {
         $parser = new DOMDocument;
         @$parser->loadHTML($HTML);
@@ -272,11 +271,9 @@ class SpiderTree
 
                         // Remove everything except the selected ID
                         if($this->intDepth == 0)
-                            $html = $this->getHtml($html,$this->arrIDs['menu']);
+                            $page = $this->getPage($this->arrIDs['menu'],$html,$url);
                         else
-                            $html = $this->getHtml($html,$this->arrIDs['content']);
-
-                        $page = $this->getPage($html,$url);
+                            $page = $this->getPage($this->arrIDs['content'],$html,$url);
 
                         if(!empty($page))
                             $pages = array_merge($pages,$page); // Get pages from the page
@@ -325,7 +322,7 @@ class SpiderTree
      *
      * @return array 
      **/
-    function getPage($HTML,$pUrl) 
+    function getPage($id,$HTML,$pUrl) 
     {                              
         if($this->display)
         {
@@ -335,9 +332,11 @@ class SpiderTree
             usleep(50000);
         }
 
+        $html = $this->getHtmlInId($id,$HTML);
+
         $Page = array();
         // $Page['title'] = $this->getTitle($pUrl);
-        $this->getLinks($HTML,$pUrl,$Page);
+        $this->getLinks($html,$pUrl,$Page);
 
         if($this->display)
         {
@@ -390,12 +389,17 @@ class SpiderTree
             // If after being process nothing gets returned
             if(!empty($cleanHref))
             {
-                // Parent url can't contain extensions
-                // such as http://example.com/index.php     
-                if(strpos($ParentUrl,'php') !== false)
-                    $ParentUrl = dirname($ParentUrl);
+                if($cleanHref[0] != '/') 
+                {
+                    // Parent url can't contain extensions
+                    // such as http://example.com/index.php     
+                    if(strpos($ParentUrl,'php') !== false)
+                        $ParentUrl = dirname($ParentUrl);
 
-                $strFullHref = $ParentUrl.$cleanHref;
+                    $strFullHref = $ParentUrl.'/'.$cleanHref;
+                }
+                else
+                    $strFullHref = $this->strRootLink.$cleanHref;
 
                 if(strpos($strFullHref,'..') !== false)
                 {
@@ -450,8 +454,6 @@ class SpiderTree
             $strLink = '/student_orgs/'.$strLink;
         }
 
-        if($strLink[0] != '/' ) 
-            $strLink = '/'.$strLink;
 
         // Remove '#' '?' 'javascript:void()' 
         if( strpos($strLink,'#') !== false || 
