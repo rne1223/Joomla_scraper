@@ -23,6 +23,7 @@ class SpiderTree
     public  $arrTree = array();	            // holds links to crawl 
     public  $display = 1;            // Flag to display errors
     public  $intFetch = 6;                 // How many should be process at a time
+    public  $Fetch = 6;                 // How many should be process at a time
 
     /*
      * Constructor 
