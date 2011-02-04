@@ -235,6 +235,25 @@ class SpiderTree
         return $html;
     }
 
+    
+    /**
+     * This function retrives the title for an html page
+     *
+     * @param   String  HTML page
+     * @return  String  title of html page
+     **/
+    function getTitle($HTML)
+    {
+        $parser = new DomDocument;
+        @$parser->loadHTML($HTML);
+
+        foreach($parser->getElementsByTagName('title') as $val) 
+            $tmp = $val->nodeValue;
+
+        $title = explode('-',$tmp);
+        return $title[count($title)-1]; 
+    }
+
     /**
      * This function retrives data from multiple pages
      *
@@ -324,9 +343,11 @@ class SpiderTree
      **/
     function getPage($id,$HTML,$pUrl) 
     {                              
+        $title = $this->getTitle($HTML); 
+
         if($this->display)
         {
-            echo "<pre> Parent:  ====> $pUrl<br>";
+            echo "<pre> Parent:$title  ====> $pUrl<br>";
             ob_flush();
             flush();
             usleep(50000);
