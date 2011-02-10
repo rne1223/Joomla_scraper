@@ -6,14 +6,14 @@ class SpiderTree
      */
     public $ch;                   // will initialize curl handle in __construct
     public $host;                 // contains the Host name eg: http://google.com -> host=google.com
-    public $strRootLink;		  // Passed link
-    public $display         = 1;      // Flag to display errors
-    public $display_error   = 1;      // Flag to display errors
+    public $strRootLink;		  // Passed link by the user
+    public $display         = 1;  // Flag to display errors
+    public $display_error   = 1;  // Flag to display errors
     public $booMax          = 0;  // Flag to check if the max was reached
-    public $gotMenu         = 0;
-    public $intFetch        = 6;      // How many should be process at a time
-    public $intDepth        = 0;	  // tracks depth as spider crawls 
-    public $intMaxDepth     = 10; 	  // max number of pages to crawl  --> note that this should not be used for control loop; it is a safety valve
+    public $gotMenu         = 0;  // Flag to check if the menu has been retrived
+    public $intFetch        = 6;  // How many handles should be process at a time
+    public $intDepth        = 0;  // tracks depth as spider crawls 
+    public $intMaxDepth     = 10; // max number of pages to crawl  
     public $Tree            = array(); // holds links to crawl 
     public $arrIDs          = array('menu'=>'pbutts','content'=>'prg-cont'); // Hold selected IDs in order to search
     public $arrUrlExt       = array('','org','php','html','htm','com','edu');
@@ -176,18 +176,18 @@ class SpiderTree
                     {
                         $this->arrScraped[] = $url;
 
-                        if($this->display)
-                        {
-                            echo "<pre> Parent:  ====>  $url<br></pre>";
-                            ob_flush();
-                            flush();
-                            usleep(50000);
-                        }
+                        // if($this->display)
+                        // {
+                        //     echo "<pre> Parent:  ====>  $url<br></pre>";
+                        //     ob_flush();
+                        //     flush();
+                        //     usleep(50000);
+                        // }
                     }
                 }
                 else
                 {
-                    if($this->display_error)
+                    if($this->display)
                     {
                         echo "<pre><b>Error: $http_code </b> ====> <u>$url</u> doesn't exist<br></pre>";
                         ob_flush();
@@ -199,7 +199,7 @@ class SpiderTree
             }
             else
             {
-                if($this->display_error)
+                if($this->display )
                 {
                     echo "<pre><b>Error: $error</b>  ====> <u>$url</u> <b>$errortext</b><br></pre>";
                     ob_flush();
@@ -459,7 +459,7 @@ class SpiderTree
     {
         $title = str_replace($this->strRootLink,'',$url);
         $title = str_replace('.php','',$title); // remove .php
-        $title = str_replace('%20',' ',$title); // replace with whites spaces
+        $title = str_replace('%20','_',$title); // replace with whites spaces
         $title = str_replace('/',' ',$title);   
         $title = ucwords($title);
         return $title;
