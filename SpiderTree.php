@@ -7,8 +7,8 @@ class SpiderTree
     public $ch;                   // will initialize curl handle in __construct
     public $host;                 // contains the Host name eg: http://google.com -> host=google.com
     public $strRootLink;		  // Passed link by the user
-    public $display         = 1;  // Flag to display errors
-    public $display_error   = 1;  // Flag to display errors
+    public $display         = 0;  // Flag to display errors
+    public $display_error   = 0;  // Flag to display errors
     public $booMax          = 0;  // Flag to check if the max was reached
     public $gotMenu         = 0;  // Flag to check if the menu has been retrived
     public $intFetch        = 6;  // How many handles should be process at a time
@@ -75,12 +75,14 @@ class SpiderTree
         }
 
         $arrData = $this->Pipe($arrInput);
-        $childs = array();
+        $childs = $cont = array();
 
         // Get the links to search
         foreach ($arrData as $page)
-           $childs = array_merge($childs,$page['links']);
-
+        {
+            $childs = array_merge($childs,$page['links']);
+            $cont[] = array('url'=>$page['url'],'title'=>$page['title'],'html'=>$page['html']);
+        }
 
         if(!empty($arrData))
             $this->arrTree[] = $arrData;
@@ -100,8 +102,7 @@ class SpiderTree
      */
     function Pipe($arrParentLinks) 
     {
-        $arrHandles = array();
-        $arrPages = array();
+        $arrPages = $arrHandles = array();
         $max = count($arrParentLinks);
         $len = $this->intFetch;
 
@@ -223,9 +224,9 @@ class SpiderTree
      *
      * @return array 
      **/
-    function getPage($id,$HTML,$pUrl) 
+    function getPage($id,$HTML,$url) 
     {                              
-        $title = $this->getTitle($pUrl); 
+        $title = $this->getTitle($url); 
 
         if(empty($title))
             $title = 'Home';
@@ -234,18 +235,17 @@ class SpiderTree
 
         if($this->display)
         {
-            echo "<pre> Parent:$title  ====> $pUrl<br>";
+            echo "<pre> Parent:$title  ====> $url<br>";
             ob_flush();
             flush();
             usleep(50000);
         }
 
         $Page = array();
-        $Page['parent'] = $pUrl;
+        $Page['url']    = $url;
         $Page['title']  = $title;
         $Page['html']   = $html;
-        $Page['links']  = $this->getLinks($html,$pUrl);
-
+        $Page['links']  = $this->getLinks($html,$url);
 
         if($this->display)
         {
@@ -461,6 +461,7 @@ class SpiderTree
         $title = str_replace('.php','',$title); // remove .php
         $title = str_replace('%20','_',$title); // replace with whites spaces
         $title = str_replace('/',' ',$title);   
+        
         $title = ucwords($title);
         return $title;
     }
