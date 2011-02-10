@@ -9,8 +9,8 @@ class SpiderTree
     public $strRootLink;		  // Passed link
     public $display         = 1;      // Flag to display errors
     public $display_error   = 1;      // Flag to display errors
-    public $booMax          = false;  // Flag to check if the max was reached
-    public $gotMenu         = false;
+    public $booMax          = 0;  // Flag to check if the max was reached
+    public $gotMenu         = 0;
     public $intFetch        = 6;      // How many should be process at a time
     public $intDepth        = 0;	  // tracks depth as spider crawls 
     public $intMaxDepth     = 10; 	  // max number of pages to crawl  --> note that this should not be used for control loop; it is a safety valve
@@ -58,7 +58,7 @@ class SpiderTree
     {
         if($this->intMaxDepth-1 < $this->intDepth)
         {
-            $this->booMax = true;
+            $this->booMax = 1;
             return;
         }
 
@@ -163,7 +163,7 @@ class SpiderTree
                         if(!$this->gotMenu)
                         {
                             $page = $this->getPage($this->arrIDs['menu'],$html,$url);
-                            $this->gotMenu = true;
+                            $this->gotMenu = 1;
                         }
                         else
                             $page = $this->getPage($this->arrIDs['content'],$html,$url);
@@ -227,6 +227,11 @@ class SpiderTree
     {                              
         $title = $this->getTitle($pUrl); 
 
+        if(empty($title))
+            $title = 'Home';
+
+        $html = $this->getHtmlInId($id,$HTML);
+
         if($this->display)
         {
             echo "<pre> Parent:$title  ====> $pUrl<br>";
@@ -235,12 +240,10 @@ class SpiderTree
             usleep(50000);
         }
 
-        $html = $this->getHtmlInId($id,$HTML);
-
         $Page = array();
         $Page['parent'] = $pUrl;
         $Page['title']  = $title;
-        // $Page['html']   = $html;
+        $Page['html']   = $html;
         $Page['links']  = $this->getLinks($html,$pUrl);
 
 
@@ -454,9 +457,10 @@ class SpiderTree
      **/
     function getTitle($url)
     {
-        $strExt = pathinfo($url,PATHINFO_EXTENSION);  
         $title = str_replace($this->strRootLink,'',$url);
-        $title = str_replace('/',' ',$title); 
+        $title = str_replace('.php','',$title); // remove .php
+        $title = str_replace('%20',' ',$title); // replace with whites spaces
+        $title = str_replace('/',' ',$title);   
         $title = ucwords($title);
         return $title;
     }
