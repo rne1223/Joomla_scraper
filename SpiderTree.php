@@ -6,6 +6,7 @@ class SpiderTree
      */
     public $ch;                   // will initialize curl handle in __construct
     public $host;                 // contains the Host name eg: http://google.com -> host=google.com
+    public $parser;
     public $strRootLink;		  // Passed link by the user
     public $display         = 0;  // Flag to display errors
     public $display_error   = 0;  // Flag to display errors
@@ -35,6 +36,7 @@ class SpiderTree
         unset($this->arrLinksFound, $this->arrTree); // Clear the arrays
         ob_start();  // to output faster
 
+        $this->parser = new DOMDocument();
         $this->host = parse_url($strInputLink,PHP_URL_HOST); //contains our current host
         $this->ch = curl_multi_init();
         $this->strRootLink = $strInputLink;
@@ -81,7 +83,10 @@ class SpiderTree
         foreach ($arrData as $page)
         {
             $childs = array_merge($childs,$page['links']);
-            $cont[] = array('url'=>$page['url'],'title'=>$page['title'],'html'=>$page['html']);
+            // $cont[] = array('url'=>$page['url'],'title'=>$page['title'],'html'=>$page['html']);
+            echo $page['url'].'<br>';
+            echo $page['html'];
+            echo '++++++++++++++++++<br>';
         }
 
         if(!empty($arrData))
@@ -232,6 +237,7 @@ class SpiderTree
             $title = 'Home';
 
         $html = $this->getHtmlInId($id,$HTML);
+        $html = $this->cleanHtml($html);
 
         if($this->display)
         {
@@ -265,14 +271,13 @@ class SpiderTree
      */
     function getLinks($HTML, $ParentUrl) 
     {                              
+        @$this->parser->loadHTML($HTML); 
+
         $arrLinks = array();
         $strSubHref = $strFullHref = $host = '';
 
-        $parser = new DOMDocument();
-        @$parser->loadHTML($HTML); 
-
         //Loop through each <a> tag in the dom and add it to the link array 
-        foreach($parser->getElementsByTagName('a') as $link) 
+        foreach($this->parser->getElementsByTagName('a') as $link) 
         { 
             $strSubHref = rtrim($link->getAttribute('href'),'/');
             $ParentUrl = rtrim($ParentUrl,'/');
@@ -336,8 +341,6 @@ class SpiderTree
                 }
             }
         } 
-
-        unset($parser);
 
         return $arrLinks;
     }
@@ -441,14 +444,51 @@ class SpiderTree
      **/
     function getHtmlInId($id,$HTML)
     {
-        $parser = new DOMDocument;
-        @$parser->loadHTML($HTML);
-        $html = $parser->saveXML($parser->getElementById($id));
+        $this->parser = new DOMDocument;
+        @$this->parser->loadHTML($HTML);
+        $html = $this->parser->saveXML($this->parser->getElementById($id));
 
-        unset($parser);
         return $html;
     }
     
+    function cleanHtml($HTML)
+    {
+        @$this->parser->loadHTML($HTML);
+        $xpath = new DOMXPath($this->parser);
+        // $query = "//div[@id='searchbar'] | //h2[img/@class='page-header']";
+        $query = "//div[@id='searchbar'] | //h2[img/@class='page-header'] | //a[img/@src=concat(matches(img/@src,'adobe'))]";
+        // $query = "//li[a/@href='classes/ahs/']";
+        // $query = "//div[@id='searchbar']";
+        // $empty_node = $this->parser->createDocumentFragment();
+        $oldnodes = $xpath->query($query);
+
+        foreach($oldnodes as $node) 
+        {
+            // $this->deleteNode($node);
+            $node->parentNode->removeChild($node);
+        }
+
+        echo  $this->parser->saveXML();
+
+        return $this->parser->saveXML();
+    }
+
+    function deleteNode($node) 
+    { 
+        $this->deleteChildren($node); 
+        $parent = $node->parentNode; 
+        $oldnode = $parent->removeChild($node); 
+    } 
+
+    function deleteChildren($node) 
+    { 
+        while (isset($node->firstChild)) 
+        { 
+            $this->deleteChildren($node->firstChild); 
+            $node->removeChild($node->firstChild); 
+        } 
+    }  
+
     /**
      * This function retrives the title for an html page
      *
@@ -495,7 +535,6 @@ class SpiderTree
 
     /**
      * Converts a complicated path into the real path
-     *
      *
      * @param   String  Path that needs to be converted
      * @return  String  Returns real path
