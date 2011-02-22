@@ -14,7 +14,7 @@ class SpiderTree
     public $gotMenu         = 0;  // Flag to check if the menu has been retrived
     public $intFetch        = 6;  // How many handles should be process at a time
     public $intDepth        = 0;  // tracks depth as spider crawls 
-    public $intMaxDepth     = 10; // max number of pages to crawl  
+    public $intMaxDepth     = 2; // max number of pages to crawl  
     public $Tree            = array(); // holds links to crawl 
     public $arrIDs          = array('menu'=>'pbutts','content'=>'prg-cont'); // Hold selected IDs in order to search
     public $arrUrlExt       = array('','org','php','html','htm','com','edu');
@@ -236,8 +236,7 @@ class SpiderTree
         if(empty($title))
             $title = 'Home';
 
-        $html = $this->getHtmlInId($id,$HTML);
-        $html = $this->cleanHtml($html);
+        $html = $this->getHtmlById($id,$HTML);
 
         if($this->display)
         {
@@ -442,11 +441,12 @@ class SpiderTree
      * @param   id      Id that we want to get the html from     
      * @return  string  Html inside the id
      **/
-    function getHtmlInId($id,$HTML)
+    function getHtmlById($id,$HTML)
     {
         $this->parser = new DOMDocument;
         @$this->parser->loadHTML($HTML);
         $html = $this->parser->saveXML($this->parser->getElementById($id));
+        $html = $this->cleanHtml($html);
 
         return $html;
     }
@@ -455,39 +455,16 @@ class SpiderTree
     {
         @$this->parser->loadHTML($HTML);
         $xpath = new DOMXPath($this->parser);
-        // $query = "//div[@id='searchbar'] | //h2[img/@class='page-header']";
-        $query = "//div[@id='searchbar'] | //h2[img/@class='page-header'] | //a[img/@src=concat(matches(img/@src,'adobe'))]";
-        // $query = "//li[a/@href='classes/ahs/']";
-        // $query = "//div[@id='searchbar']";
-        // $empty_node = $this->parser->createDocumentFragment();
+        $query = "//div[@id='searchbar'] | //img[@class='page-header']/..";
         $oldnodes = $xpath->query($query);
 
         foreach($oldnodes as $node) 
         {
-            // $this->deleteNode($node);
             $node->parentNode->removeChild($node);
         }
 
-        echo  $this->parser->saveXML();
-
         return $this->parser->saveXML();
     }
-
-    function deleteNode($node) 
-    { 
-        $this->deleteChildren($node); 
-        $parent = $node->parentNode; 
-        $oldnode = $parent->removeChild($node); 
-    } 
-
-    function deleteChildren($node) 
-    { 
-        while (isset($node->firstChild)) 
-        { 
-            $this->deleteChildren($node->firstChild); 
-            $node->removeChild($node->firstChild); 
-        } 
-    }  
 
     /**
      * This function retrives the title for an html page
