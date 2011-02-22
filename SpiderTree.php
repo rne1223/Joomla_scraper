@@ -77,7 +77,7 @@ class SpiderTree
         }
 
         $arrData = $this->Pipe($arrInput);
-        $childs = $cont = array();
+        $childs  = array();
 
         // Get the links to search
         foreach ($arrData as $page)
@@ -102,33 +102,34 @@ class SpiderTree
     /**
      * Gets child links inside an html page
      *
-     * @arrPageLinks Array - links to obtain child links from
-     * @returns Array
+     * @Urls        Array - links to obtain child links from
+     * @returns     Array
      */
-    function Pipe($arrParentLinks) 
+    function Pipe($Urls) 
     {
-        $arrPages = $arrHandles = array();
-        $max = count($arrParentLinks);
+        $fetchedData = array();
+        $handles = array();
+        $max = count($Urls);
         $len = $this->intFetch;
 
         if($max < $len)
         {
-            $arrHandles = $this->addHandles($this->ch,$arrParentLinks);
+            $handles = $this->addHandles($this->ch,$Urls);
             $this->execHandles();
-            $arrPages = array_merge($arrPages,$this->getPages($arrHandles));
+            $fetchedData = array_merge($fetchedData,$this->getPages($handles));
         }
         else
         {
             for($start=0; $start < $max; $start+=$len) 
             {
-                $arrHandles = $this->addHandles($this->ch,array_slice($arrParentLinks,$start,$len));
+                $handles = $this->addHandles($this->ch,array_slice($Urls,$start,$len));
                 $this->execHandles();
-                $arrPages = array_merge($arrPages,$this->getPages($arrHandles));
+                $fetchedData = array_merge($fetchedData,$this->getPages($handles));
             }
         }
 
-        unset($max,$len,$arrHandles,$arrParentLinks);
-        return $arrPages;
+        unset($max,$len,$handles,$Urls);
+        return $fetchedData;
     } 
 
     /**
@@ -182,13 +183,13 @@ class SpiderTree
                     {
                         $this->arrScraped[] = $url;
 
-                        // if($this->display)
-                        // {
-                        //     echo "<pre> Parent:  ====>  $url<br></pre>";
-                        //     ob_flush();
-                        //     flush();
-                        //     usleep(50000);
-                        // }
+                        if($this->display)
+                        {
+                            echo "<pre> Parent:  ====>  $url<br></pre>";
+                            ob_flush();
+                            flush();
+                            usleep(50000);
+                        }
                     }
                 }
                 else
@@ -250,7 +251,7 @@ class SpiderTree
         $Page['url']    = $url;
         $Page['title']  = $title;
         $Page['html']   = $html;
-        $Page['links']  = $this->getLinks($html,$url);
+        $Page['links']  = $this->getLinks($html,$url,'a');
 
         if($this->display)
         {
@@ -264,79 +265,85 @@ class SpiderTree
     }
 
     /**
-     * Gets links using the simple_html_dot class
+     * Gets links of a certain tag 
      *
      * @return array with 
      */
-    function getLinks($HTML, $ParentUrl) 
+    function getLinks($HTML,$ParentUrl,$tag) 
     {                              
         @$this->parser->loadHTML($HTML); 
-
         $arrLinks = array();
-        $strSubHref = $strFullHref = $host = '';
+        $path = $href = $host = '';
 
-        //Loop through each <a> tag in the dom and add it to the link array 
-        foreach($this->parser->getElementsByTagName('a') as $link) 
+        foreach($this->parser->getElementsByTagName($tag) as $link) 
         { 
-            $strSubHref = rtrim($link->getAttribute('href'),'/');
+            $host = parse_url($path,PHP_URL_HOST);
             $ParentUrl = rtrim($ParentUrl,'/');
-            $host = parse_url($strSubHref,PHP_URL_HOST);
 
-            if(strpos($ParentUrl,"\n") !== false || strpos($strSubHref,"\n") !== false)
+            if ($tag == 'a')
             {
-                continue;
+                $path = rtrim($link->getAttribute('href'),'/');
+            }
+            else if ($tag == 'img')
+            {
+                $path = rtrim($link->getAttribute('src'),'/');
             }
 
             // If scraping from another host
-            if(strpos($strSubHref,'http') !== false && $this->host != $host)
+            if (strpos($path,'http') !== false && $this->host != $host)
             {
                 continue;    
             } // If it has our host don't do any string manipulation
-            else if(strpos($strSubHref,'http') !== false && $this->host == $host)
+            else if (strpos($path,'http') !== false && $this->host == $host)
             {
                 continue;
             }
 
             // Clean link from '#','?',javascript and other stuff
-            if(!empty($strSubHref))
-                $cleanHref = $this->cleanLink($strSubHref);
+            if (!empty($path))
+                $cleanHref = $this->cleanLink($path);
+
+            if (strpos($ParentUrl,"\n") !== false || strpos($path,"\n") !== false)
+            {
+                continue;
+            }
 
             // If after being process nothing gets returned
-            if(!empty($cleanHref))
+            if (!empty($cleanHref))
             {
-                if($cleanHref[0] != '/') 
+                if ($cleanHref[0] != '/') 
                 {
                     // Parent url can't contain extensions
                     // such as http://example.com/index.php     
                     if(strpos($ParentUrl,'php') !== false)
                         $ParentUrl = dirname($ParentUrl);
 
-                    $strFullHref = $ParentUrl.'/'.$cleanHref;
+                    $href = $ParentUrl.'/'.$cleanHref;
                 }
                 else
-                    $strFullHref = $this->strRootLink.$cleanHref;
+                    $href = $this->strRootLink.$cleanHref;
 
-                if(strpos($strFullHref,'..') !== false)
+                if (strpos($href,'..') !== false)
                 {
                     // We remove the root so it doesn't mess with the double back slashes from http://
-                    $strFullHref = str_replace($this->strRootLink,'',$strFullHref);
-                    $strFullHref = $this->realPath($strFullHref);
+                    $href = str_replace($this->strRootLink,'',$href);
+                    $href = $this->realPath($href);
                     // We add it back to make it a comple url
-                    $strFullHref = $this->strRootLink.$strFullHref;
+                    $href = $this->strRootLink.$href;
                 }
 
-                if(!$this->exist($strFullHref)) 
+                if (!$this->exist($href)) 
                 {
-                    if($this->display)
+                    if ($this->display)
                     {
-                        echo "\tChild:  ====>  $strFullHref\n";
+                        echo "\tChild:  ====>  $href\n";
                         ob_flush();
                         flush();
                         usleep(50000);
                     }
 
-                    $arrLinks[] = $strFullHref;
-                    $this->arrLinksFound[] = $strFullHref;
+                    $arrLinks[] = $href;
+                    $this->arrLinksFound[] = $href;
                 }
             }
         } 
@@ -375,64 +382,6 @@ class SpiderTree
 
         if(strlen($strLink) > 1)
             return $strLink;
-    }
-
-    /**
-     * Create cUrl multi handles
-     *
-     * @param reference curlHandle is a reference to the multi_init
-     * @param array     arrUrl is an array containing the urls that need handle
-     * @returns arrays of handles 
-     */
-    function addHandles(&$curlHandle,$arrUrl) 
-    {
-        $arrHandles = array();
-        foreach($arrUrl as $url) 
-        {
-            $handle = curl_init();
-            curl_setopt($handle, CURLOPT_URL, $url);
-            curl_setopt($handle, CURLOPT_FAILONERROR, $this->VAR_CURLOPT_FAILONERROR);
-            curl_setopt($handle, CURLOPT_FOLLOWLOCATION, $this->VAR_CURLOPT_FOLLOWLOCATION);
-            curl_setopt($handle, CURLOPT_RETURNTRANSFER, $this->VAR_CURLOPT_RETURNTRANSFER);
-
-            if(strlen($this->VAR_CURLOPT_USERAGENT)>0) 
-                curl_setopt($handle, CURLOPT_USERAGENT, $this->VAR_CURLOPT_USERAGENT);
-
-            curl_multi_add_handle($curlHandle,$handle);
-            $arrHandles[] = $handle;
-        }
-        return $arrHandles;   
-    } 
-
-    /**
-     * Executes handles 
-     *
-     * @return void
-     **/
-    function execHandles()
-    {
-        // Processes each of the handles from $arrHandles
-        do {
-            $mrc = curl_multi_exec($this->ch,$active);   // fetch pages in parallel
-            // usleep(rand(1,2)*1000);  // reduce heavy load on the server, wait from 1 to 2 sec
-        } while ($mrc == CURLM_CALL_MULTI_PERFORM);
-
-        while ($active and $mrc == CURLM_OK) 
-        {
-            // wait for network
-            if (curl_multi_select($this->ch) != -1) 
-            {
-                // pull in any new data, or at least handle timeouts
-                do {
-                    $mrc = curl_multi_exec($this->ch, $active);
-                    // usleep(rand(1,2)*1000); // reduce heavy load on the server, wait from 1 to 2 sec
-                } while ($mrc == CURLM_CALL_MULTI_PERFORM);
-            }
-        }
-
-        // In Case there was an error while cUrl was fetching pages
-        if ($mrc != CURLM_OK) 
-            echo "<b>Error: Curl multi read error $mrc<b><br>";
     }
 
     /**
@@ -580,6 +529,64 @@ class SpiderTree
         }
         else
             return $found;
+    }
+
+    /**
+     * Create cUrl multi handles
+     *
+     * @param reference curlHandle is a reference to the multi_init
+     * @param array     arrUrl is an array containing the urls that need handle
+     * @returns arrays of handles 
+     */
+    function addHandles(&$curlHandle,$arrUrl) 
+    {
+        $arrHandles = array();
+        foreach($arrUrl as $url) 
+        {
+            $handle = curl_init();
+            curl_setopt($handle, CURLOPT_URL, $url);
+            curl_setopt($handle, CURLOPT_FAILONERROR, $this->VAR_CURLOPT_FAILONERROR);
+            curl_setopt($handle, CURLOPT_FOLLOWLOCATION, $this->VAR_CURLOPT_FOLLOWLOCATION);
+            curl_setopt($handle, CURLOPT_RETURNTRANSFER, $this->VAR_CURLOPT_RETURNTRANSFER);
+
+            if(strlen($this->VAR_CURLOPT_USERAGENT)>0) 
+                curl_setopt($handle, CURLOPT_USERAGENT, $this->VAR_CURLOPT_USERAGENT);
+
+            curl_multi_add_handle($curlHandle,$handle);
+            $arrHandles[] = $handle;
+        }
+        return $arrHandles;   
+    } 
+
+    /**
+     * Executes handles 
+     *
+     * @return void
+     **/
+    function execHandles()
+    {
+        // Processes each of the handles from $arrHandles
+        do {
+            $mrc = curl_multi_exec($this->ch,$active);   // fetch pages in parallel
+            // usleep(rand(1,2)*1000);  // reduce heavy load on the server, wait from 1 to 2 sec
+        } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+        while ($active and $mrc == CURLM_OK) 
+        {
+            // wait for network
+            if (curl_multi_select($this->ch) != -1) 
+            {
+                // pull in any new data, or at least handle timeouts
+                do {
+                    $mrc = curl_multi_exec($this->ch, $active);
+                    // usleep(rand(1,2)*1000); // reduce heavy load on the server, wait from 1 to 2 sec
+                } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+            }
+        }
+
+        // In Case there was an error while cUrl was fetching pages
+        if ($mrc != CURLM_OK) 
+            echo "<b>Error: Curl multi read error $mrc<b><br>";
     }
 } 
 ?>
